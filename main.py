@@ -1,24 +1,22 @@
 from fasthtml import FastHTML
 from fasthtml.common import *
-import os, uvicorn
+import uvicorn
 from starlette.responses import FileResponse
 from starlette.datastructures import UploadFile
 import PIL.Image
+from io import BytesIO
 import google.generativeai as genai
 
 # Initialize FastHTML app
 app = FastHTML()
 
-# Ensure the uploads directory exists
-os.makedirs("uploads", exist_ok=True)
-
-def process_image(image_path, api_key):
+def process_image(image_content, api_key):
     """Analyze image using Gemini and extract data"""
     try:
         # Configure API with user-provided key
         genai.configure(api_key=api_key)
 
-        image = PIL.Image.open(image_path)
+        image = PIL.Image.open(BytesIO(image_content))
         model = genai.GenerativeModel(model_name="gemini-1.5-pro")
 
         # First check if it's a receipt
@@ -70,27 +68,21 @@ async def handle_analysis(image: UploadFile, api_key: str):
     if not api_key.strip():
         return Div("❌ Error: API key is required!", cls="error")
 
-    # Save the uploaded image
-    image_path = f"uploads/{image.filename}"
     try:
-        with open(image_path, "wb") as f:
-            f.write(await image.read())
+        # Read the uploaded image content
+        image_content = await image.read()
 
         # Process the image with user's API key
-        analysis_result = process_image(image_path, api_key.strip())
+        analysis_result = process_image(image_content, api_key.strip())
 
         return Div(
             Pre(analysis_result) if "Receipt detected" in analysis_result else P(analysis_result),
-            Img(src=f"/uploads/{image.filename}", alt="Uploaded image",
+            Img(src=f"data:image/png;base64,{image_content.decode('latin1')}", alt="Uploaded image",
                 style="max-width: 500px; margin-top: 20px; display: block;")
         )
 
     except Exception as e:
         return Div(f"Processing Error: {str(e)}", cls="error")
-
-@app.get("/uploads/{filename}")
-async def serve_upload(filename: str):
-    return FileResponse(f"uploads/{filename}")
 
 if __name__ == '__main__':
     uvicorn.run("main:app", host='0.0.0.0', port=int(os.getenv("PORT", default=5000)), reload=True)
