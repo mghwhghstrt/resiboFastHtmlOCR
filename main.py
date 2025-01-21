@@ -27,8 +27,7 @@ def process_image(image_content, api_key):
         if is_receipt == "YES":
             # If receipt, extract CSV data
             csv_response = model.generate_content([
-                "Extract all text from this image and return it as a CSV file under appropriate headings. "
-                "Return only the content of the csv file, no explanations.",
+                "Extract all text from this image and return it as a CSV file under appropriate headings. Return only the content of the csv file, no explanations.",
                 image
             ])
             return f"Receipt detected:\n\n{csv_response.text}"
